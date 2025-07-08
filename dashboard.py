@@ -57,7 +57,7 @@ show_section("👨‍💼 Mr Said (QSC)", said_submitted, said_missed)
 
 # ------------------ Section 2: Ideal Store ------------------
 
-file_ideal = "Herfy_QSC_IDEAL_STORE.xlsx"
+file_ideal = "Herfy_IDEAL_STORE.xlsx"
 ideal_df = pd.read_excel(file_ideal)
 
 ideal_df['Director'] = ideal_df["Director of Operation's Name:"]

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # Load Excel file and read both sheets
 file_path = "Herfy_QSC_Data.xlsx"
-submissions_df = pd.read_excel(file_path, sheet_name="QSC filled submissions")
+submissions_df = pd.read_excel(file_path, sheet_name="QSC field submissions")
 missed_df = pd.read_excel(file_path, sheet_name="QSC missed submission")
 
 # Standardize leader column

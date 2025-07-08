@@ -11,7 +11,7 @@ st.write("✅ Available sheets in the Excel file:", xlsx.sheet_names)
 
 # Try reading sheets (update sheet names based on output from above)
 submissions_df = pd.read_excel(file_path, sheet_name="QSC field submission")
-missed_df = pd.read_excel(file_path, sheet_name="QSC missed submission")
+missed_df = pd.read_excel(file_path, sheet_name="QSC Missed Submission")
 
 # Clean up leader column name
 submissions_df['Leader'] = submissions_df['Leader_profit_Center']

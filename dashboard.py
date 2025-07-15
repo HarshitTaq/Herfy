@@ -1,44 +1,63 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 
-# Upload the Excel file
-uploaded_file = st.file_uploader("Upload the CLEANLINESS Excel file", type=["xlsx"])
+st.set_page_config(layout="wide")
+st.title("📋 Auditor Completion Dashboard")
 
-if uploaded_file:
-    # Load the relevant sheets
-    audit_df = pd.read_excel(uploaded_file, sheet_name="CLEANLINESS_AUDIT")
-    actual_df = pd.read_excel(uploaded_file, sheet_name="CLEANLINESS_ACTUAL")
-    projected_df = pd.read_excel(uploaded_file, sheet_name="CLEANLINESS_PROJECTED")
+uploaded_files = st.file_uploader("Upload Multiple Audit Excel Files", type="xlsx", accept_multiple_files=True)
 
-    # Clean up: remove extra spaces if any
-    actual_df['Actual'] = actual_df['Actual'].str.strip()
-    projected_df['Projected'] = projected_df['Projected'].str.strip()
-    audit_df['Name'] = audit_df['Name'].str.strip()
+def process_audit(file):
+    # Try to extract base name for display (e.g., CLEANLINESS)
+    base_name = file.name.split('.')[0].replace("_", " ").title()
 
-    # Compute expected count from projected
-    expected_counts = projected_df['Projected'].value_counts().reset_index()
-    expected_counts.columns = ['Name', 'Expected']
+    try:
+        xls = pd.ExcelFile(file)
+        # Detect sheets dynamically
+        sheets = xls.sheet_names
 
-    # Compute actual count from actual
-    actual_counts = actual_df['Actual'].value_counts().reset_index()
-    actual_counts.columns = ['Name', 'Actual']
+        # Extract matching sheet names
+        audit_sheet = [s for s in sheets if "AUDIT" in s.upper() and "ACTUAL" not in s.upper() and "PROJECTED" not in s.upper()]
+        actual_sheet = [s for s in sheets if "ACTUAL" in s.upper()]
+        projected_sheet = [s for s in sheets if "PROJECTED" in s.upper()]
 
-    # Merge both
-    summary_df = pd.merge(expected_counts, actual_counts, on='Name', how='outer').fillna(0)
+        if not (audit_sheet and actual_sheet and projected_sheet):
+            st.warning(f"❌ Skipping {file.name} — required sheets missing.")
+            return
 
-    # Convert to int
-    summary_df['Expected'] = summary_df['Expected'].astype(int)
-    summary_df['Actual'] = summary_df['Actual'].astype(int)
-    summary_df['Delta'] = (summary_df['Expected'] - summary_df['Actual']).abs()
+        audit_df = pd.read_excel(xls, sheet_name=audit_sheet[0])
+        actual_df = pd.read_excel(xls, sheet_name=actual_sheet[0])
+        projected_df = pd.read_excel(xls, sheet_name=projected_sheet[0])
 
-    # Final Output
-    st.subheader("🧾 Auditor Completion Summary - CLEANLINESS")
-    st.dataframe(summary_df.sort_values('Name'))
+        # Clean names
+        audit_df['Name'] = audit_df['Name'].astype(str).str.strip()
+        actual_df['Actual'] = actual_df['Actual'].astype(str).str.strip()
+        projected_df['Projected'] = projected_df['Projected'].astype(str).str.strip()
 
-    # 📊 Plot
-    fig = px.bar(summary_df.sort_values("Expected", ascending=False),
-                 x='Name', y=['Expected', 'Actual'],
-                 barmode='group', title="Expected vs Actual Submissions",
-                 labels={'value': 'Submission Count', 'Name': 'Auditor'})
-    st.plotly_chart(fig, use_container_width=True)
+        # Expected count
+        expected = projected_df['Projected'].value_counts().reset_index()
+        expected.columns = ['Name', 'Expected']
+
+        # Actual count
+        actual = actual_df['Actual'].value_counts().reset_index()
+        actual.columns = ['Name', 'Actual']
+
+        # Merge
+        summary = pd.merge(expected, actual, on='Name', how='outer').fillna(0)
+        summary['Expected'] = summary['Expected'].astype(int)
+        summary['Actual'] = summary['Actual'].astype(int)
+        summary['Delta'] = (summary['Expected'] - summary['Actual']).abs()
+
+        # Display
+        st.subheader(f"📊 {base_name} Completion Summary")
+        st.dataframe(summary.sort_values("Name"))
+
+        fig = px.bar(summary.sort_values("Expected", ascending=False),
+                     x='Name', y=['Expected', 'Actual'],
+                     barmode='group',
+                     title=f"{base_name} - Expected vs Actual Submissions",
+                     labels={'value': 'Count', 'Name': 'Auditor'})
+        st.plotly_chart(fig, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Error processing {f

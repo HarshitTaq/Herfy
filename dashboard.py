@@ -132,61 +132,50 @@ except Exception as e:
 
 # ----------------- IDEAL Process Dashboard -----------------
 
-st.header("📋 IDEAL Audit - Projected vs Actual")
+st.header("📋 IDEAL Audit - Final Summary (from IDEAL_AUDIT sheet)")
 
 try:
-    ideal_actual = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_ACTUAL")
-    ideal_projected = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_PROJECTED")
+    df_ideal = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_AUDIT")
+    df_ideal = df_ideal[["Name", "Expected", "Actual", "Delta"]]
+    df_ideal = df_ideal.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
 
-    ideal_merged = pd.merge(
-        ideal_projected, ideal_actual,
-        on="Store", how="outer", suffixes=('_Projected', '_Actual')
-    )
-    ideal_merged = ideal_merged[['Store', 'Projected', 'Actual']]
+    # Ensure correct types
+    df_ideal["Expected"] = df_ideal["Expected"].astype(int)
+    df_ideal["Actual"] = df_ideal["Actual"].astype(int)
+    df_ideal["Missed Submissions of Assigned OC"] = df_ideal["Missed Submissions of Assigned OC"].astype(int)
 
-    ideal_proj_counts = ideal_merged['Projected'].value_counts().reset_index()
-    ideal_proj_counts.columns = ['Name', 'Projected_Stores']
+    df_ideal = df_ideal.sort_values("Name").reset_index(drop=True)
+    df_ideal.index += 1
 
-    ideal_act_counts = ideal_merged['Actual'].value_counts().reset_index()
-    ideal_act_counts.columns = ['Name', 'Actual_Stores']
-
-    ideal_summary = pd.merge(ideal_proj_counts, ideal_act_counts, on='Name', how='outer').fillna(0)
-    ideal_summary['Projected_Stores'] = ideal_summary['Projected_Stores'].astype(int)
-    ideal_summary['Actual_Stores'] = ideal_summary['Actual_Stores'].astype(int)
-    ideal_summary["Missed Submissions of Assigned OC"] = ideal_summary["Projected_Stores"] - ideal_summary["Actual_Stores"]
-
-    ideal_summary = ideal_summary.sort_values("Name").reset_index(drop=True)
-    ideal_summary.index += 1
-
-    ideal_total = pd.DataFrame({
+    # Add summary row
+    total_row = pd.DataFrame({
         "Name": ["Total"],
-        "Projected_Stores": [ideal_summary["Projected_Stores"].sum()],
-        "Actual_Stores": [ideal_summary["Actual_Stores"].sum()],
-        "Missed Submissions of Assigned OC": [ideal_summary["Missed Submissions of Assigned OC"].sum()]
+        "Expected": [df_ideal["Expected"].sum()],
+        "Actual": [df_ideal["Actual"].sum()],
+        "Missed Submissions of Assigned OC": [df_ideal["Missed Submissions of Assigned OC"].sum()]
     }, index=[""])
 
-    ideal_final = pd.concat([ideal_summary, ideal_total], axis=0)
+    df_final = pd.concat([df_ideal, total_row], axis=0)
 
     st.subheader("📊 IDEAL Completion Table")
-    st.dataframe(ideal_final, use_container_width=True)
+    st.dataframe(df_final, use_container_width=True)
 
     st.subheader("📈 IDEAL Audit Chart")
-    ideal_fig = px.bar(
-        ideal_summary,
+    fig_ideal = px.bar(
+        df_ideal,
         x="Name",
-        y=["Projected_Stores", "Actual_Stores"],
+        y=["Expected", "Actual"],
         barmode="group",
         text_auto=True,
         labels={"value": "Count", "Name": "Auditor"}
     )
-    ideal_fig.update_layout(
+    fig_ideal.update_layout(
         xaxis_tickangle=-45,
-        yaxis=dict(title="Stores", range=[0, ideal_summary[["Projected_Stores", "Actual_Stores"]].max().max() + 2]),
+        yaxis=dict(title="Stores", range=[0, df_ideal[["Expected", "Actual"]].max().max() + 2]),
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
-    st.plotly_chart(ideal_fig, use_container_width=True)
+    st.plotly_chart(fig_ideal, use_container_width=True)
 
 except Exception as e:
     st.error(f"IDEAL Error: {e}")
-

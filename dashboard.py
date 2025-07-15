@@ -132,7 +132,7 @@ except Exception as e:
 
 # ----------------- IDEAL Process Dashboard -----------------
 
-# ----------------- IDEAL Process Dashboard (Pre-aggregated Sheet with NaN Fix) -----------------
+# ----------------- IDEAL Process Dashboard (Clean with Excel total row excluded) -----------------
 
 st.header("📋 IDEAL Audit - Final Summary (from IDEAL_AUDIT sheet)")
 
@@ -141,7 +141,10 @@ try:
     df_ideal = df_ideal[["Name", "Expected", "Actual", "Delta"]]
     df_ideal = df_ideal.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
 
-    # Fill NaNs with 0 before converting to int
+    # ❗ Drop Excel's total row — where Name is blank or NaN
+    df_ideal = df_ideal[df_ideal["Name"].notna() & (df_ideal["Name"].astype(str).str.strip() != "")]
+
+    # Fill NaNs before converting
     df_ideal[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = df_ideal[
         ["Expected", "Actual", "Missed Submissions of Assigned OC"]
     ].fillna(0).astype(int)
@@ -149,7 +152,7 @@ try:
     df_ideal = df_ideal.sort_values("Name").reset_index(drop=True)
     df_ideal.index += 1
 
-    # Add summary row
+    # Our own total row (correct one)
     total_row = pd.DataFrame({
         "Name": ["Total"],
         "Expected": [df_ideal["Expected"].sum()],
@@ -181,4 +184,3 @@ try:
 
 except Exception as e:
     st.error(f"IDEAL Error: {e}")
-

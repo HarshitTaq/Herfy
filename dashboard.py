@@ -184,3 +184,65 @@ try:
 
 except Exception as e:
     st.error(f"IDEAL Error: {e}")
+
+# ----------------- QSC Process Dashboard (with Month Filter) -----------------
+
+st.header("📋 QSC Audit - Projected vs Actual (with Month Filter)")
+
+try:
+    df_qsc = pd.read_excel("QSC AUDIT.xlsx")
+    df_qsc = df_qsc[["Month", "Name", "Expected", "Actual", "Delta"]]
+    df_qsc = df_qsc.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
+
+    # Drop any summary row from Excel where Name is blank
+    df_qsc = df_qsc[df_qsc["Name"].notna() & (df_qsc["Name"].astype(str).str.strip() != "")]
+
+    # Ensure all counts are integers
+    df_qsc[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = df_qsc[
+        ["Expected", "Actual", "Missed Submissions of Assigned OC"]
+    ].fillna(0).astype(int)
+
+    # --- Month Filter
+    month_options = df_qsc["Month"].dropna().unique()
+    selected_month = st.selectbox("📅 Select Month", sorted(month_options))
+
+    df_month = df_qsc[df_qsc["Month"] == selected_month].copy()
+    df_month = df_month.sort_values("Name").reset_index(drop=True)
+    df_month.index += 1
+
+    # --- Summary Row
+    summary_row = pd.DataFrame({
+        "Month": [selected_month],
+        "Name": ["Total"],
+        "Expected": [df_month["Expected"].sum()],
+        "Actual": [df_month["Actual"].sum()],
+        "Missed Submissions of Assigned OC": [df_month["Missed Submissions of Assigned OC"].sum()]
+    }, index=[""])
+
+    df_final = pd.concat([df_month, summary_row], axis=0)
+
+    # --- Table Output
+    st.subheader(f"📊 QSC Completion Table - {selected_month}")
+    st.dataframe(df_final.drop(columns=["Month"]), use_container_width=True)
+
+    # --- Chart Output
+    st.subheader(f"📈 QSC Audit Chart - {selected_month}")
+    fig_qsc = px.bar(
+        df_month,
+        x="Name",
+        y=["Expected", "Actual"],
+        barmode="group",
+        text_auto=True,
+        labels={"value": "Count", "Name": "Auditor"}
+    )
+    fig_qsc.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(title="Stores", range=[0, df_month[["Expected", "Actual"]].max().max() + 2]),
+        height=500,
+        margin=dict(l=20, r=20, t=50, b=100)
+    )
+    st.plotly_chart(fig_qsc, use_container_width=True)
+
+except Exception as e:
+    st.error(f"QSC Error: {e}")
+

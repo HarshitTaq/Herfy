@@ -187,39 +187,38 @@ except Exception as e:
 
 # ----------------- QSC Process Dashboard (with Month Filter) -----------------
 
-# ----------------- QSC Process Dashboard (Enhanced Version) -----------------
+# ----------------- QSC Process Dashboard (Simplified & Final) -----------------
 
-st.header("📋 QSC Audit - Projected vs Actual (Multi-Month View)")
+st.header("📋 QSC Audit - Projected vs Actual (Month-wise Summary)")
 
 try:
     import pandas as pd
     import plotly.express as px
 
-    # Load Excel
+    # Load all sheets from Excel and tag with Month
     qsc_path = "QSC AUDIT.xlsx"
     xls = pd.ExcelFile(qsc_path)
 
-    # Read and combine sheets with Month column from sheet name
     all_months = []
     for sheet in xls.sheet_names:
         df = xls.parse(sheet)
-        df["Month"] = sheet  # Add month from sheet name
+        df["Month"] = sheet
         all_months.append(df)
 
     qsc_df = pd.concat(all_months, ignore_index=True)
 
-    # Rename and clean
+    # Clean and rename
     qsc_df = qsc_df.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
     qsc_df = qsc_df[qsc_df["Name"].notna() & (qsc_df["Name"].astype(str).str.strip() != "")]
     qsc_df[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = qsc_df[
         ["Expected", "Actual", "Missed Submissions of Assigned OC"]
     ].fillna(0).astype(int)
 
-    # Sort months chronologically (Jan → Feb → ...)
+    # Sort months in correct order
     month_order = ["Jan", "Feb", "March", "April", "May", "June", "July"]
     qsc_df["Month"] = pd.Categorical(qsc_df["Month"], categories=month_order, ordered=True)
 
-    # --- UI: Select Month(s)
+    # Month dropdown (multi-select)
     selected_months = st.multiselect(
         "📅 Select Month(s)", options=month_order,
         default=["Jan"]
@@ -229,11 +228,8 @@ try:
     df_filtered = df_filtered.sort_values(["Month", "Name"]).reset_index(drop=True)
     df_filtered.index += 1
 
-    # --- UI: Leader toggle
-    group_by_leader = st.toggle("📍 Group Chart by Leader Profit Center", value=False)
-
-    # --- Summary Row (Combined for all selected months)
-    summary_row = pd.DataFrame({
+    # Summary row (total at bottom)
+    total_row = pd.DataFrame({
         "Month": ["Total"],
         "Name": ["Total"],
         "Expected": [df_filtered["Expected"].sum()],
@@ -241,33 +237,22 @@ try:
         "Missed Submissions of Assigned OC": [df_filtered["Missed Submissions of Assigned OC"].sum()]
     }, index=[""])
 
-    df_final = pd.concat([df_filtered, summary_row], axis=0)
+    df_final = pd.concat([df_filtered, total_row], axis=0)
 
-    # --- Show Table
-    st.subheader("📊 Completion Table (Filtered)")
+    # Display Table
+    st.subheader("📊 Completion Table")
     st.dataframe(df_final.drop(columns=["Month"]), use_container_width=True)
 
-    # --- Chart Logic
+    # Display Bar Chart (simple)
     st.subheader("📈 Audit Chart")
-    if group_by_leader and "Leader_profit_Center" in df_filtered.columns:
-        fig = px.bar(
-            df_filtered,
-            x="Leader_profit_Center",
-            y=["Expected", "Actual"],
-            barmode="group",
-            text_auto=True,
-            labels={"value": "Count", "Leader_profit_Center": "Leader"}
-        )
-    else:
-        fig = px.bar(
-            df_filtered,
-            x="Name",
-            y=["Expected", "Actual"],
-            barmode="group",
-            text_auto=True,
-            labels={"value": "Count", "Name": "Auditor"}
-        )
-
+    fig = px.bar(
+        df_filtered,
+        x="Name",
+        y=["Expected", "Actual"],
+        barmode="group",
+        text_auto=True,
+        labels={"value": "Count", "Name": "Auditor"}
+    )
     fig.update_layout(
         xaxis_tickangle=-45,
         yaxis=dict(title="Stores", range=[0, df_filtered[["Expected", "Actual"]].max().max() + 2]),
@@ -275,16 +260,6 @@ try:
         margin=dict(l=20, r=20, t=50, b=100)
     )
     st.plotly_chart(fig, use_container_width=True)
-
-    # --- Export to Excel
-    st.subheader("📤 Export Filtered Table")
-    export_df = df_filtered.drop(columns=["Month"])
-    st.download_button(
-        label="📥 Download Excel",
-        data=export_df.to_excel(index=False, engine="openpyxl"),
-        file_name=f"QSC_Filtered_{'_'.join(selected_months)}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 
 except Exception as e:
     st.error(f"QSC Error: {e}")

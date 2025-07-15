@@ -1,71 +1,60 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import os
+import plotly.express as px
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="📋 Auditor Completion Dashboard", layout="wide")
 st.title("📋 Auditor Completion Dashboard")
 
-DATA_DIR = "data"  # folder containing all your Excel files
-
-def process_audit(filepath):
-    base_name = os.path.splitext(os.path.basename(filepath))[0].replace("_", " ").title()
-
-    try:
-        xls = pd.ExcelFile(filepath)
-        sheets = xls.sheet_names
-
-        audit_sheet = [s for s in sheets if "AUDIT" in s.upper() and "ACTUAL" not in s.upper() and "PROJECTED" not in s.upper()]
-        actual_sheet = [s for s in sheets if "ACTUAL" in s.upper()]
-        projected_sheet = [s for s in sheets if "PROJECTED" in s.upper()]
-
-        if not (audit_sheet and actual_sheet and projected_sheet):
-            st.warning(f"❌ Skipping {filepath} — required sheets missing.")
-            return
-
-        audit_df = pd.read_excel(xls, sheet_name=audit_sheet[0])
-        actual_df = pd.read_excel(xls, sheet_name=actual_sheet[0])
-        projected_df = pd.read_excel(xls, sheet_name=projected_sheet[0])
-
-        # Normalize names
-        audit_df['Name'] = audit_df['Name'].astype(str).str.strip()
-        actual_df['Actual'] = actual_df['Actual'].astype(str).str.strip()
-        projected_df['Projected'] = projected_df['Projected'].astype(str).str.strip()
-
-        # Count expected per auditor
-        expected = projected_df['Projected'].value_counts().reset_index()
-        expected.columns = ['Name', 'Expected']
-
-        # Count actual per auditor
-        actual = actual_df['Actual'].value_counts().reset_index()
-        actual.columns = ['Name', 'Actual']
-
-        # Merge summary
-        summary = pd.merge(expected, actual, on='Name', how='outer').fillna(0)
-        summary['Expected'] = summary['Expected'].astype(int)
-        summary['Actual'] = summary['Actual'].astype(int)
-        summary['Delta'] = (summary['Expected'] - summary['Actual']).abs()
-
-        # Display table
-        st.subheader(f"📊 {base_name} Completion Summary")
-        st.dataframe(summary.sort_values("Name"))
-
-        # Plot
-        fig = px.bar(summary.sort_values("Expected", ascending=False),
-                     x='Name', y=['Expected', 'Actual'],
-                     barmode='group',
-                     title=f"{base_name} - Expected vs Actual Submissions",
-                     labels={'value': 'Count', 'Name': 'Auditor'})
-        st.plotly_chart(fig, use_container_width=True)
-
-    except Exception as e:
-        st.error(f"Error processing {filepath}: {str(e)}")
-
-# Run for all Excel files in /data
-excel_files = [os.path.join(DATA_DIR, f) for f in os.listdir(DATA_DIR) if f.endswith(".xlsx")]
+# Automatically detect Excel files in root directory
+excel_files = [f for f in os.listdir() if f.endswith(".xlsx")]
 
 if not excel_files:
-    st.warning("📂 No Excel files found in the 'data/' folder. Add your audit files there.")
+    st.warning("No Excel files found in the current directory.")
 else:
     for file in excel_files:
-        process_audit(file)
+        try:
+            st.subheader(f"📄 {file.split('.')[0]}")
+
+            # Try sheet name variations (for backward compatibility)
+            sheet_names = pd.ExcelFile(file).sheet_names
+            expected_sheet = next((s for s in sheet_names if "AUDIT" in s.upper() and "ACTUAL" not in s.upper() and "PROJECTED" not in s.upper()), None)
+            actual_sheet = next((s for s in sheet_names if "ACTUAL" in s.upper()), None)
+            projected_sheet = next((s for s in sheet_names if "PROJECTED" in s.upper()), None)
+
+            if not expected_sheet or not actual_sheet or not projected_sheet:
+                st.error(f"Missing required sheets in {file}. Found: {sheet_names}")
+                continue
+
+            # Load data
+            expected_df = pd.read_excel(file, sheet_name=expected_sheet)
+            actual_df = pd.read_excel(file, sheet_name=actual_sheet)
+            projected_df = pd.read_excel(file, sheet_name=projected_sheet)
+
+            # Calculate actual counts per auditor
+            actual_count = actual_df['Actual'].value_counts().reset_index()
+            actual_count.columns = ['Name', 'Actual']
+
+            # Merge with expected
+            merged_df = expected_df[['Name', 'Expected']].merge(actual_count, on='Name', how='left')
+            merged_df['Actual'] = merged_df['Actual'].fillna(0).astype(int)
+            merged_df['Delta'] = (merged_df['Expected'] - merged_df['Actual']).abs()
+
+            # Display summary table
+            st.dataframe(merged_df.sort_values(by='Name').reset_index(drop=True), use_container_width=True)
+
+            # Plot
+            fig = px.bar(
+                merged_df.sort_values(by='Expected', ascending=False),
+                x='Name',
+                y=['Expected', 'Actual'],
+                barmode='group',
+                title=f"Completion Comparison - {file.split('.')[0]}",
+                text_auto=True,
+                labels={'value': 'Count', 'Name': 'Auditor'}
+            )
+            fig.update_layout(xaxis_tickangle=-45, height=500, margin=dict(l=20, r=20, t=50, b=100))
+            st.plotly_chart(fig, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Error processing {file}: {e}")

@@ -68,3 +68,26 @@ try:
 
 except Exception as e:
     st.error(f"Something went wrong: {e}")
+
+st.markdown("## 🔍 Store Submission Tracker by OC")
+
+# Get unique auditors from projected
+ocs = projected_df['Projected'].dropna().unique()
+selected_oc = st.selectbox("Select an Auditor (OC)", sorted(ocs))
+
+# Get all projected stores for selected OC
+projected_stores = projected_df[projected_df['Projected'] == selected_oc]['Store'].tolist()
+
+# Get all actual stores submitted by this OC
+actual_stores = actual_df[actual_df['Actual'] == selected_oc]['Store'].tolist()
+
+# Create table with submission status
+status_table = pd.DataFrame({
+    "Projected Stores": projected_stores,
+    "Submitted Stores": [store if store in actual_stores else "" for store in projected_stores],
+    "Submission Status": ["✅ Submitted" if store in actual_stores else "❌ Missing" for store in projected_stores]
+})
+
+# Display result
+st.dataframe(status_table, use_container_width=True)
+

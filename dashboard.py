@@ -69,6 +69,7 @@ try:
 except Exception as e:
     st.error(f"Something went wrong: {e}")
 
+
 # ----------------- CRO Process Dashboard -----------------
 
 st.header("📋 CRO Audit - Projected vs Actual")
@@ -92,6 +93,7 @@ try:
     cro_summary = pd.merge(cro_proj_counts, cro_act_counts, on='Name', how='outer').fillna(0)
     cro_summary['Projected_Stores'] = cro_summary['Projected_Stores'].astype(int)
     cro_summary['Actual_Stores'] = cro_summary['Actual_Stores'].astype(int)
+    cro_summary["Missed Submissions of Assigned OC"] = cro_summary["Projected_Stores"] - cro_summary["Actual_Stores"]
 
     cro_summary = cro_summary.sort_values("Name").reset_index(drop=True)
     cro_summary.index += 1
@@ -100,6 +102,7 @@ try:
         "Name": ["Total"],
         "Projected_Stores": [cro_summary["Projected_Stores"].sum()],
         "Actual_Stores": [cro_summary["Actual_Stores"].sum()],
+        "Missed Submissions of Assigned OC": [cro_summary["Missed Submissions of Assigned OC"].sum()]
     }, index=[""])
 
     cro_final = pd.concat([cro_summary, cro_total], axis=0)
@@ -126,3 +129,64 @@ try:
 
 except Exception as e:
     st.error(f"CRO Error: {e}")
+
+# ----------------- IDEAL Process Dashboard -----------------
+
+st.header("📋 IDEAL Audit - Projected vs Actual")
+
+try:
+    ideal_actual = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_ACTUAL")
+    ideal_projected = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_PROJECTED")
+
+    ideal_merged = pd.merge(
+        ideal_projected, ideal_actual,
+        on="Store", how="outer", suffixes=('_Projected', '_Actual')
+    )
+    ideal_merged = ideal_merged[['Store', 'Projected', 'Actual']]
+
+    ideal_proj_counts = ideal_merged['Projected'].value_counts().reset_index()
+    ideal_proj_counts.columns = ['Name', 'Projected_Stores']
+
+    ideal_act_counts = ideal_merged['Actual'].value_counts().reset_index()
+    ideal_act_counts.columns = ['Name', 'Actual_Stores']
+
+    ideal_summary = pd.merge(ideal_proj_counts, ideal_act_counts, on='Name', how='outer').fillna(0)
+    ideal_summary['Projected_Stores'] = ideal_summary['Projected_Stores'].astype(int)
+    ideal_summary['Actual_Stores'] = ideal_summary['Actual_Stores'].astype(int)
+    ideal_summary["Missed Submissions of Assigned OC"] = ideal_summary["Projected_Stores"] - ideal_summary["Actual_Stores"]
+
+    ideal_summary = ideal_summary.sort_values("Name").reset_index(drop=True)
+    ideal_summary.index += 1
+
+    ideal_total = pd.DataFrame({
+        "Name": ["Total"],
+        "Projected_Stores": [ideal_summary["Projected_Stores"].sum()],
+        "Actual_Stores": [ideal_summary["Actual_Stores"].sum()],
+        "Missed Submissions of Assigned OC": [ideal_summary["Missed Submissions of Assigned OC"].sum()]
+    }, index=[""])
+
+    ideal_final = pd.concat([ideal_summary, ideal_total], axis=0)
+
+    st.subheader("📊 IDEAL Completion Table")
+    st.dataframe(ideal_final, use_container_width=True)
+
+    st.subheader("📈 IDEAL Audit Chart")
+    ideal_fig = px.bar(
+        ideal_summary,
+        x="Name",
+        y=["Projected_Stores", "Actual_Stores"],
+        barmode="group",
+        text_auto=True,
+        labels={"value": "Count", "Name": "Auditor"}
+    )
+    ideal_fig.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(title="Stores", range=[0, ideal_summary[["Projected_Stores", "Actual_Stores"]].max().max() + 2]),
+        height=500,
+        margin=dict(l=20, r=20, t=50, b=100)
+    )
+    st.plotly_chart(ideal_fig, use_container_width=True)
+
+except Exception as e:
+    st.error(f"IDEAL Error: {e}")
+

@@ -2,69 +2,65 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="📋 Auditor Completion Dashboard - CRO", layout="wide")
-st.title("📋 Auditor Completion Dashboard - CRO")
+st.set_page_config(page_title="📋 Auditor Completion Dashboard", layout="wide")
+st.title("📋 Auditor Completion Dashboard")
 
-# Load the new Excel file
-file_path = "CRO AUDIT.xlsx"
+# Load Excel from current directory
+file_path = "CLEANLINESS AUDIT.xlsx"
+sheet_name = "CLEANLINESS_AUDIT"
 
 try:
-    # Read relevant sheets
-    df_actual = pd.read_excel(file_path, sheet_name="CRO_ACTUAL")
-    df_projected = pd.read_excel(file_path, sheet_name="CRO_PROJECTED")
+    df = pd.read_excel(file_path, sheet_name=sheet_name)
 
-    # Merge on Store to match actual vs projected
-    merged_df = pd.merge(
-        df_projected, df_actual,
-        on="Store", how="outer", suffixes=('_Projected', '_Actual')
-    )
+    # --- Extract Section 1: Expected ---
+    expected_df = df.iloc[:, [0, 1]].dropna()
+    expected_df.columns = ["Name", "Expected"]
 
-    # Clean table of Store, Projected (Name), Actual (Name)
-    merged_df = merged_df[['Store', 'Projected', 'Actual']]
+    # --- Extract Section 2: Actual ---
+    actual_df = df.iloc[:, [5, 6]].dropna()
+    actual_df.columns = ["Store", "Actual"]
 
-    # Count how many stores each person was projected for
-    projected_counts = merged_df['Projected'].value_counts().reset_index()
-    projected_counts.columns = ['Name', 'Projected_Stores']
+    # Count how many stores each OC covered
+    actual_counts = actual_df["Actual"].value_counts().reset_index()
+    actual_counts.columns = ["Name", "Actual"]
 
-    # Count how many stores each person actually submitted
-    actual_counts = merged_df['Actual'].value_counts().reset_index()
-    actual_counts.columns = ['Name', 'Actual_Stores']
+    # --- Merge & calculate missed ---
+    merged_df = expected_df.merge(actual_counts, on="Name", how="left")
+    merged_df["Actual"] = merged_df["Actual"].fillna(0).astype(int)
+    merged_df["Missed Submissions of assigned OC"] = merged_df["Expected"] - merged_df["Actual"]
 
-    # Merge counts into one table
-    summary_df = pd.merge(projected_counts, actual_counts, on='Name', how='outer').fillna(0)
-    summary_df['Projected_Stores'] = summary_df['Projected_Stores'].astype(int)
-    summary_df['Actual_Stores'] = summary_df['Actual_Stores'].astype(int)
+    # --- Sort & Limit to Top 32 ---
+    merged_df = merged_df.sort_values("Name").reset_index(drop=True)
+    merged_df.index += 1  # Start from 1
+    merged_df = merged_df.iloc[:32]
 
-    # Sort alphabetically
-    summary_df = summary_df.sort_values("Name").reset_index(drop=True)
-    summary_df.index += 1  # start index from 1
-
-    # Summary Row
+    # --- Summary Row ---
     total_row = pd.DataFrame({
         "Name": ["Total"],
-        "Projected_Stores": [summary_df["Projected_Stores"].sum()],
-        "Actual_Stores": [summary_df["Actual_Stores"].sum()],
+        "Expected": [merged_df["Expected"].sum()],
+        "Actual": [merged_df["Actual"].sum()],
+        "Missed Submissions of assigned OC": [merged_df["Missed Submissions of assigned OC"].sum()]
     }, index=[""])
 
-    final_df = pd.concat([summary_df, total_row], axis=0)
+    final_df = pd.concat([merged_df, total_row], axis=0)
 
-    # Show Table
-    st.subheader("📊 Projected vs Actual Store Submissions")
+    # --- Show Table ---
+    st.subheader("📊 Completion Summary (First 32 Auditors)")
     st.dataframe(final_df, use_container_width=True)
 
-    # Bar Chart (no delta)
-    st.subheader("📈 Projected vs Actual Submissions")
+    # --- Show Bar Chart ---
+    st.subheader("📈 Expected vs Actual Submissions")
     fig = px.bar(
-        summary_df,
+        merged_df,
         x="Name",
-        y=["Projected_Stores", "Actual_Stores"],
+        y=["Expected", "Actual"],
         barmode="group",
         text_auto=True,
         labels={"value": "Count", "Name": "Auditor"}
     )
     fig.update_layout(
         xaxis_tickangle=-45,
-        yaxis=dict(title="Stores", range=[0, summary_df[["Projected_Stores", "Actual_Stores"]].max().max() + 2]),
+        yaxis=dict(range=[0, 20]),
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
@@ -73,3 +69,60 @@ try:
 except Exception as e:
     st.error(f"Something went wrong: {e}")
 
+# ----------------- CRO Process Dashboard -----------------
+
+st.header("📋 CRO Audit - Projected vs Actual")
+
+try:
+    cro_actual = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_ACTUAL")
+    cro_projected = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_PROJECTED")
+
+    cro_merged = pd.merge(
+        cro_projected, cro_actual,
+        on="Store", how="outer", suffixes=('_Projected', '_Actual')
+    )
+    cro_merged = cro_merged[['Store', 'Projected', 'Actual']]
+
+    cro_proj_counts = cro_merged['Projected'].value_counts().reset_index()
+    cro_proj_counts.columns = ['Name', 'Projected_Stores']
+
+    cro_act_counts = cro_merged['Actual'].value_counts().reset_index()
+    cro_act_counts.columns = ['Name', 'Actual_Stores']
+
+    cro_summary = pd.merge(cro_proj_counts, cro_act_counts, on='Name', how='outer').fillna(0)
+    cro_summary['Projected_Stores'] = cro_summary['Projected_Stores'].astype(int)
+    cro_summary['Actual_Stores'] = cro_summary['Actual_Stores'].astype(int)
+
+    cro_summary = cro_summary.sort_values("Name").reset_index(drop=True)
+    cro_summary.index += 1
+
+    cro_total = pd.DataFrame({
+        "Name": ["Total"],
+        "Projected_Stores": [cro_summary["Projected_Stores"].sum()],
+        "Actual_Stores": [cro_summary["Actual_Stores"].sum()],
+    }, index=[""])
+
+    cro_final = pd.concat([cro_summary, cro_total], axis=0)
+
+    st.subheader("📊 CRO Completion Table")
+    st.dataframe(cro_final, use_container_width=True)
+
+    st.subheader("📈 CRO Audit Chart")
+    cro_fig = px.bar(
+        cro_summary,
+        x="Name",
+        y=["Projected_Stores", "Actual_Stores"],
+        barmode="group",
+        text_auto=True,
+        labels={"value": "Count", "Name": "Auditor"}
+    )
+    cro_fig.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(title="Stores", range=[0, cro_summary[["Projected_Stores", "Actual_Stores"]].max().max() + 2]),
+        height=500,
+        margin=dict(l=20, r=20, t=50, b=100)
+    )
+    st.plotly_chart(cro_fig, use_container_width=True)
+
+except Exception as e:
+    st.error(f"CRO Error: {e}")

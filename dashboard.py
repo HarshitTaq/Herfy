@@ -132,6 +132,8 @@ except Exception as e:
 
 # ----------------- IDEAL Process Dashboard -----------------
 
+# ----------------- IDEAL Process Dashboard (Pre-aggregated Sheet with NaN Fix) -----------------
+
 st.header("📋 IDEAL Audit - Final Summary (from IDEAL_AUDIT sheet)")
 
 try:
@@ -139,10 +141,10 @@ try:
     df_ideal = df_ideal[["Name", "Expected", "Actual", "Delta"]]
     df_ideal = df_ideal.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
 
-    # Ensure correct types
-    df_ideal["Expected"] = df_ideal["Expected"].astype(int)
-    df_ideal["Actual"] = df_ideal["Actual"].astype(int)
-    df_ideal["Missed Submissions of Assigned OC"] = df_ideal["Missed Submissions of Assigned OC"].astype(int)
+    # Fill NaNs with 0 before converting to int
+    df_ideal[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = df_ideal[
+        ["Expected", "Actual", "Missed Submissions of Assigned OC"]
+    ].fillna(0).astype(int)
 
     df_ideal = df_ideal.sort_values("Name").reset_index(drop=True)
     df_ideal.index += 1
@@ -179,3 +181,4 @@ try:
 
 except Exception as e:
     st.error(f"IDEAL Error: {e}")
+

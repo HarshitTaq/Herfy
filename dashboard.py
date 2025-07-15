@@ -2,65 +2,69 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="📋 Auditor Completion Dashboard", layout="wide")
-st.title("📋 Auditor Completion Dashboard")
+st.set_page_config(page_title="📋 Auditor Completion Dashboard - CRO", layout="wide")
+st.title("📋 Auditor Completion Dashboard - CRO")
 
-# Load Excel from current directory
-file_path = "CLEANLINESS AUDIT.xlsx"
-sheet_name = "CLEANLINESS_AUDIT"
+# Load the new Excel file
+file_path = "CRO AUDIT.xlsx"
 
 try:
-    df = pd.read_excel(file_path, sheet_name=sheet_name)
+    # Read relevant sheets
+    df_actual = pd.read_excel(file_path, sheet_name="CRO_ACTUAL")
+    df_projected = pd.read_excel(file_path, sheet_name="CRO_PROJECTED")
 
-    # --- Extract Section 1: Expected ---
-    expected_df = df.iloc[:, [0, 1]].dropna()
-    expected_df.columns = ["Name", "Expected"]
+    # Merge on Store to match actual vs projected
+    merged_df = pd.merge(
+        df_projected, df_actual,
+        on="Store", how="outer", suffixes=('_Projected', '_Actual')
+    )
 
-    # --- Extract Section 2: Actual ---
-    actual_df = df.iloc[:, [5, 6]].dropna()
-    actual_df.columns = ["Store", "Actual"]
+    # Clean table of Store, Projected (Name), Actual (Name)
+    merged_df = merged_df[['Store', 'Projected', 'Actual']]
 
-    # Count how many stores each OC covered
-    actual_counts = actual_df["Actual"].value_counts().reset_index()
-    actual_counts.columns = ["Name", "Actual"]
+    # Count how many stores each person was projected for
+    projected_counts = merged_df['Projected'].value_counts().reset_index()
+    projected_counts.columns = ['Name', 'Projected_Stores']
 
-    # --- Merge & calculate missed ---
-    merged_df = expected_df.merge(actual_counts, on="Name", how="left")
-    merged_df["Actual"] = merged_df["Actual"].fillna(0).astype(int)
-    merged_df["Missed Submissions of assigned OC"] = merged_df["Expected"] - merged_df["Actual"]
+    # Count how many stores each person actually submitted
+    actual_counts = merged_df['Actual'].value_counts().reset_index()
+    actual_counts.columns = ['Name', 'Actual_Stores']
 
-    # --- Sort & Limit to Top 32 ---
-    merged_df = merged_df.sort_values("Name").reset_index(drop=True)
-    merged_df.index += 1  # Start from 1
-    merged_df = merged_df.iloc[:32]
+    # Merge counts into one table
+    summary_df = pd.merge(projected_counts, actual_counts, on='Name', how='outer').fillna(0)
+    summary_df['Projected_Stores'] = summary_df['Projected_Stores'].astype(int)
+    summary_df['Actual_Stores'] = summary_df['Actual_Stores'].astype(int)
 
-    # --- Summary Row ---
+    # Sort alphabetically
+    summary_df = summary_df.sort_values("Name").reset_index(drop=True)
+    summary_df.index += 1  # start index from 1
+
+    # Summary Row
     total_row = pd.DataFrame({
         "Name": ["Total"],
-        "Expected": [merged_df["Expected"].sum()],
-        "Actual": [merged_df["Actual"].sum()],
-        "Missed Submissions of assigned OC": [merged_df["Missed Submissions of assigned OC"].sum()]
+        "Projected_Stores": [summary_df["Projected_Stores"].sum()],
+        "Actual_Stores": [summary_df["Actual_Stores"].sum()],
     }, index=[""])
 
-    final_df = pd.concat([merged_df, total_row], axis=0)
+    final_df = pd.concat([summary_df, total_row], axis=0)
 
-    # --- Show Table ---
-    st.subheader("📊 Completion Summary (First 32 Auditors)")
+    # Show Table
+    st.subheader("📊 Projected vs Actual Store Submissions")
     st.dataframe(final_df, use_container_width=True)
 
-    # --- Show Bar Chart ---
-    st.subheader("📈 Expected vs Actual Submissions")
+    # Bar Chart (no delta)
+    st.subheader("📈 Projected vs Actual Submissions")
     fig = px.bar(
-        merged_df,
+        summary_df,
         x="Name",
-        y=["Expected", "Actual"],
+        y=["Projected_Stores", "Actual_Stores"],
         barmode="group",
         text_auto=True,
         labels={"value": "Count", "Name": "Auditor"}
     )
     fig.update_layout(
         xaxis_tickangle=-45,
-        yaxis=dict(range=[0, 20]),
+        yaxis=dict(title="Stores", range=[0, summary_df[["Projected_Stores", "Actual_Stores"]].max().max() + 2]),
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
@@ -68,26 +72,4 @@ try:
 
 except Exception as e:
     st.error(f"Something went wrong: {e}")
-
-st.markdown("## 🔍 Store Submission Tracker by OC")
-
-# Get unique auditors from projected
-ocs = projected_df['Projected'].dropna().unique()
-selected_oc = st.selectbox("Select an Auditor (OC)", sorted(ocs))
-
-# Get all projected stores for selected OC
-projected_stores = projected_df[projected_df['Projected'] == selected_oc]['Store'].tolist()
-
-# Get all actual stores submitted by this OC
-actual_stores = actual_df[actual_df['Actual'] == selected_oc]['Store'].tolist()
-
-# Create table with submission status
-status_table = pd.DataFrame({
-    "Projected Stores": projected_stores,
-    "Submitted Stores": [store if store in actual_stores else "" for store in projected_stores],
-    "Submission Status": ["✅ Submitted" if store in actual_stores else "❌ Missing" for store in projected_stores]
-})
-
-# Display result
-st.dataframe(status_table, use_container_width=True)
 

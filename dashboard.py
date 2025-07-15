@@ -187,31 +187,46 @@ except Exception as e:
 
 # ----------------- QSC Process Dashboard (with Month Filter) -----------------
 
-st.header("📋 QSC Audit - Projected vs Actual (with Month Filter)")
+# ----------------- QSC Process Dashboard (Multi-sheet Monthly Audit) -----------------
+
+st.header("📋 QSC Audit - Projected vs Actual (Monthly Dashboard)")
 
 try:
-    df_qsc = pd.read_excel("QSC AUDIT.xlsx")
-    df_qsc = df_qsc[["Month", "Name", "Expected", "Actual", "Delta"]]
-    df_qsc = df_qsc.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
+    import pandas as pd
 
-    # Drop any summary row from Excel where Name is blank
-    df_qsc = df_qsc[df_qsc["Name"].notna() & (df_qsc["Name"].astype(str).str.strip() != "")]
+    # Load and combine all monthly sheets
+    qsc_path = "QSC AUDIT.xlsx"
+    xls = pd.ExcelFile(qsc_path)
 
-    # Ensure all counts are integers
-    df_qsc[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = df_qsc[
+    # Combine all sheets with month tracking
+    all_months = []
+    for sheet in xls.sheet_names:
+        df = xls.parse(sheet)
+        df["Month"] = sheet  # Add sheet name as Month
+        all_months.append(df)
+
+    qsc_df = pd.concat(all_months, ignore_index=True)
+
+    # Keep only relevant columns
+    qsc_df = qsc_df[["Month", "Name", "Expected", "Actual", "Delta"]]
+    qsc_df = qsc_df.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
+
+    # Drop any totals or blank names
+    qsc_df = qsc_df[qsc_df["Name"].notna() & (qsc_df["Name"].astype(str).str.strip() != "")]
+
+    # Fill blanks before int conversion
+    qsc_df[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = qsc_df[
         ["Expected", "Actual", "Missed Submissions of Assigned OC"]
     ].fillna(0).astype(int)
 
-    # --- Month Filter
-    month_options = df_qsc["Month"].dropna().unique()
-    selected_month = st.selectbox("📅 Select Month", sorted(month_options))
-
-    df_month = df_qsc[df_qsc["Month"] == selected_month].copy()
+    # --- Month filter
+    selected_month = st.selectbox("📅 Select Month", sorted(qsc_df["Month"].unique()))
+    df_month = qsc_df[qsc_df["Month"] == selected_month].copy()
     df_month = df_month.sort_values("Name").reset_index(drop=True)
     df_month.index += 1
 
-    # --- Summary Row
-    summary_row = pd.DataFrame({
+    # --- Summary row
+    total_row = pd.DataFrame({
         "Month": [selected_month],
         "Name": ["Total"],
         "Expected": [df_month["Expected"].sum()],
@@ -219,14 +234,15 @@ try:
         "Missed Submissions of Assigned OC": [df_month["Missed Submissions of Assigned OC"].sum()]
     }, index=[""])
 
-    df_final = pd.concat([df_month, summary_row], axis=0)
+    df_final = pd.concat([df_month, total_row], axis=0)
 
-    # --- Table Output
+    # --- Table
     st.subheader(f"📊 QSC Completion Table - {selected_month}")
     st.dataframe(df_final.drop(columns=["Month"]), use_container_width=True)
 
-    # --- Chart Output
+    # --- Graph
     st.subheader(f"📈 QSC Audit Chart - {selected_month}")
+    import plotly.express as px
     fig_qsc = px.bar(
         df_month,
         x="Name",

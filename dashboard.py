@@ -187,78 +187,104 @@ except Exception as e:
 
 # ----------------- QSC Process Dashboard (with Month Filter) -----------------
 
-# ----------------- QSC Process Dashboard (Multi-sheet Monthly Audit) -----------------
+# ----------------- QSC Process Dashboard (Enhanced Version) -----------------
 
-st.header("📋 QSC Audit - Projected vs Actual (Monthly Dashboard)")
+st.header("📋 QSC Audit - Projected vs Actual (Multi-Month View)")
 
 try:
     import pandas as pd
+    import plotly.express as px
 
-    # Load and combine all monthly sheets
+    # Load Excel
     qsc_path = "QSC AUDIT.xlsx"
     xls = pd.ExcelFile(qsc_path)
 
-    # Combine all sheets with month tracking
+    # Read and combine sheets with Month column from sheet name
     all_months = []
     for sheet in xls.sheet_names:
         df = xls.parse(sheet)
-        df["Month"] = sheet  # Add sheet name as Month
+        df["Month"] = sheet  # Add month from sheet name
         all_months.append(df)
 
     qsc_df = pd.concat(all_months, ignore_index=True)
 
-    # Keep only relevant columns
-    qsc_df = qsc_df[["Month", "Name", "Expected", "Actual", "Delta"]]
+    # Rename and clean
     qsc_df = qsc_df.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
-
-    # Drop any totals or blank names
     qsc_df = qsc_df[qsc_df["Name"].notna() & (qsc_df["Name"].astype(str).str.strip() != "")]
-
-    # Fill blanks before int conversion
     qsc_df[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = qsc_df[
         ["Expected", "Actual", "Missed Submissions of Assigned OC"]
     ].fillna(0).astype(int)
 
-    # --- Month filter
-    selected_month = st.selectbox("📅 Select Month", sorted(qsc_df["Month"].unique()))
-    df_month = qsc_df[qsc_df["Month"] == selected_month].copy()
-    df_month = df_month.sort_values("Name").reset_index(drop=True)
-    df_month.index += 1
+    # Sort months chronologically (Jan → Feb → ...)
+    month_order = ["Jan", "Feb", "March", "April", "May", "June", "July"]
+    qsc_df["Month"] = pd.Categorical(qsc_df["Month"], categories=month_order, ordered=True)
 
-    # --- Summary row
-    total_row = pd.DataFrame({
-        "Month": [selected_month],
+    # --- UI: Select Month(s)
+    selected_months = st.multiselect(
+        "📅 Select Month(s)", options=month_order,
+        default=["Jan"]
+    )
+
+    df_filtered = qsc_df[qsc_df["Month"].isin(selected_months)].copy()
+    df_filtered = df_filtered.sort_values(["Month", "Name"]).reset_index(drop=True)
+    df_filtered.index += 1
+
+    # --- UI: Leader toggle
+    group_by_leader = st.toggle("📍 Group Chart by Leader Profit Center", value=False)
+
+    # --- Summary Row (Combined for all selected months)
+    summary_row = pd.DataFrame({
+        "Month": ["Total"],
         "Name": ["Total"],
-        "Expected": [df_month["Expected"].sum()],
-        "Actual": [df_month["Actual"].sum()],
-        "Missed Submissions of Assigned OC": [df_month["Missed Submissions of Assigned OC"].sum()]
+        "Expected": [df_filtered["Expected"].sum()],
+        "Actual": [df_filtered["Actual"].sum()],
+        "Missed Submissions of Assigned OC": [df_filtered["Missed Submissions of Assigned OC"].sum()]
     }, index=[""])
 
-    df_final = pd.concat([df_month, total_row], axis=0)
+    df_final = pd.concat([df_filtered, summary_row], axis=0)
 
-    # --- Table
-    st.subheader(f"📊 QSC Completion Table - {selected_month}")
+    # --- Show Table
+    st.subheader("📊 Completion Table (Filtered)")
     st.dataframe(df_final.drop(columns=["Month"]), use_container_width=True)
 
-    # --- Graph
-    st.subheader(f"📈 QSC Audit Chart - {selected_month}")
-    import plotly.express as px
-    fig_qsc = px.bar(
-        df_month,
-        x="Name",
-        y=["Expected", "Actual"],
-        barmode="group",
-        text_auto=True,
-        labels={"value": "Count", "Name": "Auditor"}
-    )
-    fig_qsc.update_layout(
+    # --- Chart Logic
+    st.subheader("📈 Audit Chart")
+    if group_by_leader and "Leader_profit_Center" in df_filtered.columns:
+        fig = px.bar(
+            df_filtered,
+            x="Leader_profit_Center",
+            y=["Expected", "Actual"],
+            barmode="group",
+            text_auto=True,
+            labels={"value": "Count", "Leader_profit_Center": "Leader"}
+        )
+    else:
+        fig = px.bar(
+            df_filtered,
+            x="Name",
+            y=["Expected", "Actual"],
+            barmode="group",
+            text_auto=True,
+            labels={"value": "Count", "Name": "Auditor"}
+        )
+
+    fig.update_layout(
         xaxis_tickangle=-45,
-        yaxis=dict(title="Stores", range=[0, df_month[["Expected", "Actual"]].max().max() + 2]),
+        yaxis=dict(title="Stores", range=[0, df_filtered[["Expected", "Actual"]].max().max() + 2]),
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
-    st.plotly_chart(fig_qsc, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- Export to Excel
+    st.subheader("📤 Export Filtered Table")
+    export_df = df_filtered.drop(columns=["Month"])
+    st.download_button(
+        label="📥 Download Excel",
+        data=export_df.to_excel(index=False, engine="openpyxl"),
+        file_name=f"QSC_Filtered_{'_'.join(selected_months)}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 except Exception as e:
     st.error(f"QSC Error: {e}")
-

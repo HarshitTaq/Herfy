@@ -6,7 +6,7 @@ st.set_page_config(page_title="📋 Auditor Completion Dashboard", layout="wide"
 st.title("📋 Auditor Completion Dashboard")
 
 # ----------------- CLEANLINESS -----------------
-st.header("🧼 Cleanliness Audit")
+st.header("🧼 CLEANLINESS AUDIT (Q1 - March to 10th July)")
 
 try:
     df = pd.read_excel("CLEANLINESS AUDIT.xlsx", sheet_name="CLEANLINESS_AUDIT")
@@ -96,7 +96,7 @@ except Exception as e:
 
 
 # ----------------- CRO -----------------
-st.header("🏪 CRO Audit")
+st.header("🏪 CRO (Capturing Restaurant Opportunity) AUDIT (Yearly)")
 
 try:
     cro_actual = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_ACTUAL")
@@ -180,7 +180,7 @@ except Exception as e:
     st.error(f"CRO Error: {e}")
 
 # ----------------- IDEAL -----------------
-st.header("🛆 IDEAL Audit")
+st.header("📦 IDEAL STORE GUIDE - VM (Yearly)")
 try:
     df_ideal = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_AUDIT")
     df_ideal = df_ideal.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
@@ -221,7 +221,7 @@ except Exception as e:
     st.error(f"IDEAL Error: {e}")
 
 # ----------------- QSC -----------------
-st.header("📋 QSC Audit - Month-wise Summary & Completion %")
+st.header("📋 QSC AUDIT (Monthly) - Month-wise Summary & Completion %")
 try:
     xls = pd.ExcelFile("QSC AUDIT.xlsx")
     all_months = []

@@ -59,6 +59,7 @@ except Exception as e:
 
 # ----------------- CRO -----------------
 st.header("🏪 CRO Audit")
+
 try:
     cro_actual = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_ACTUAL")
     cro_projected = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_PROJECTED")
@@ -91,10 +92,17 @@ try:
     st.subheader("📊 Completion Table")
     st.dataframe(cro_final, use_container_width=True)
 
-    fig = px.bar(cro_summary, x="Name", y=["Projected_Stores", "Actual_Stores"], barmode="group", text_auto=True)
+    fig = px.bar(
+        cro_summary, 
+        x="Name", 
+        y=["Projected_Stores", "Actual_Stores"], 
+        barmode="group", 
+        text_auto=True
+    )
     fig.update_layout(xaxis_tickangle=-45, height=500)
     st.plotly_chart(fig, use_container_width=True, key="cro_bar")
 
+    # Completion % Table + Chart
     with st.expander("📊 Show Completion % - CRO"):
         pct_df = cro_summary[["Name", "Projected_Stores", "Actual_Stores"]].copy()
         pct_df["Completion %"] = (pct_df["Actual_Stores"] / pct_df["Projected_Stores"] * 100).round(1)
@@ -103,6 +111,26 @@ try:
         fig_pct = px.bar(pct_df, x="Name", y="Completion %", text="Completion %")
         fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
         st.plotly_chart(fig_pct, use_container_width=True, key="cro_pct")
+
+    # 🥧 Leader-wise Pie Chart
+    st.subheader("🥧 CRO Completion by Leader (Albert vs Said)")
+
+    leader_data = pd.DataFrame({
+        "Leader": ["Mr. Albert", "Mr. Said"],
+        "Actual": [144, 106]
+    })
+
+    fig_pie = px.pie(
+        leader_data,
+        names="Leader",
+        values="Actual",
+        title="CRO - Actual Submissions by Leader",
+        hole=0.4
+    )
+    fig_pie.update_traces(textinfo="label+percent+value", pull=[0.05, 0.05])
+    fig_pie.update_layout(height=400, margin=dict(t=50, b=50, l=30, r=30))
+
+    st.plotly_chart(fig_pie, use_container_width=True, key="cro_leader_pie")
 
 except Exception as e:
     st.error(f"CRO Error: {e}")

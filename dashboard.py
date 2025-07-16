@@ -194,3 +194,65 @@ try:
 
 except Exception as e:
     st.error(f"QSC Error: {e}")
+
+# ----------------- Completion % Charts for Cleanliness, CRO, IDEAL -----------------
+
+st.header("✅ Auditor Completion % Overview")
+
+# Cleanliness
+with st.expander("📊 Show Completion % - Cleanliness Process"):
+    cleanliness_pct = merged_df[["Name", "Expected", "Actual"]].copy()
+    cleanliness_pct["Completion %"] = (cleanliness_pct["Actual"] / cleanliness_pct["Expected"] * 100).round(1)
+    st.dataframe(cleanliness_pct[["Name", "Completion %"]], use_container_width=True)
+
+    fig_clean = px.bar(
+        cleanliness_pct,
+        x="Name", y="Completion %",
+        text="Completion %",
+        labels={"Name": "Auditor", "Completion %": "Completion Rate (%)"}
+    )
+    fig_clean.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
+        height=500
+    )
+    st.plotly_chart(fig_clean, use_container_width=True)
+
+# CRO
+with st.expander("📊 Show Completion % - CRO Process"):
+    cro_pct = cro_summary[["Name", "Projected_Stores", "Actual_Stores"]].copy()
+    cro_pct["Completion %"] = (cro_pct["Actual_Stores"] / cro_pct["Projected_Stores"] * 100).round(1)
+    st.dataframe(cro_pct[["Name", "Completion %"]], use_container_width=True)
+
+    fig_cro = px.bar(
+        cro_pct,
+        x="Name", y="Completion %",
+        text="Completion %",
+        labels={"Name": "Auditor", "Completion %": "Completion Rate (%)"}
+    )
+    fig_cro.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
+        height=500
+    )
+    st.plotly_chart(fig_cro, use_container_width=True)
+
+# IDEAL
+with st.expander("📊 Show Completion % - IDEAL Process"):
+    ideal_pct = df_ideal[["Name", "Expected", "Actual"]].copy()
+    ideal_pct["Completion %"] = (ideal_pct["Actual"] / ideal_pct["Expected"] * 100).round(1)
+    st.dataframe(ideal_pct[["Name", "Completion %"]], use_container_width=True)
+
+    fig_ideal = px.bar(
+        ideal_pct,
+        x="Name", y="Completion %",
+        text="Completion %",
+        labels={"Name": "Auditor", "Completion %": "Completion Rate (%)"}
+    )
+    fig_ideal.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
+        height=500
+    )
+    st.plotly_chart(fig_ideal, use_container_width=True)
+

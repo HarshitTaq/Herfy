@@ -112,22 +112,28 @@ try:
         fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
         st.plotly_chart(fig_pct, use_container_width=True, key="cro_pct")
 
-    # 🥧 Leader-wise Pie Chart
-    st.subheader("🥧 CRO Completion by Leader (Albert vs Said)")
+    # 🥧 Leader-wise Pie Chart (with expected vs actual)
+    st.subheader("🥧 CRO Completion by Leader (Expected vs Actual)")
 
     leader_data = pd.DataFrame({
         "Leader": ["Mr. Albert", "Mr. Said"],
+        "Expected": [192, 183],
         "Actual": [144, 106]
     })
 
+    leader_data["Completion %"] = (leader_data["Actual"] / leader_data["Expected"] * 100).round(1)
+    leader_data["Label"] = leader_data.apply(
+        lambda row: f"{row['Leader']} ({row['Actual']}/{row['Expected']}, {row['Completion %']}%)", axis=1
+    )
+
     fig_pie = px.pie(
         leader_data,
-        names="Leader",
+        names="Label",
         values="Actual",
-        title="CRO - Actual Submissions by Leader",
+        title="CRO - Leader-wise Actual Completion",
         hole=0.4
     )
-    fig_pie.update_traces(textinfo="label+percent+value", pull=[0.05, 0.05])
+    fig_pie.update_traces(textinfo="label+percent", pull=[0.05, 0.05])
     fig_pie.update_layout(height=400, margin=dict(t=50, b=50, l=30, r=30))
 
     st.plotly_chart(fig_pie, use_container_width=True, key="cro_leader_pie")

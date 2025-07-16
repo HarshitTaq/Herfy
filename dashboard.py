@@ -7,6 +7,7 @@ st.title("📋 Auditor Completion Dashboard")
 
 # ----------------- CLEANLINESS -----------------
 st.header("🧼 Cleanliness Audit")
+
 try:
     df = pd.read_excel("CLEANLINESS AUDIT.xlsx", sheet_name="CLEANLINESS_AUDIT")
 
@@ -25,6 +26,7 @@ try:
 
     merged_df = merged_df.sort_values("Name").reset_index(drop=True)
     merged_df.index += 1
+    merged_df = merged_df.iloc[:32]
 
     total_row = pd.DataFrame({
         "Name": ["Total"],
@@ -35,27 +37,63 @@ try:
 
     final_df = pd.concat([merged_df, total_row], axis=0)
 
-    st.subheader("📊 Completion Summary")
+    st.subheader("📊 Completion Table")
     st.dataframe(final_df, use_container_width=True)
 
-    fig = px.bar(merged_df, x="Name", y=["Expected", "Actual"], barmode="group", text_auto=True)
+    fig = px.bar(
+        merged_df, 
+        x="Name", 
+        y=["Expected", "Actual"],
+        barmode="group", 
+        text_auto=True,
+        labels={"value": "Count", "Name": "Auditor"}
+    )
     fig.update_layout(xaxis_tickangle=-45, height=500)
-    st.plotly_chart(fig, use_container_width=True, key="cleanliness_bar")
+    st.plotly_chart(fig, use_container_width=True, key="clean_bar")
 
+    # Completion % Table + Chart
     with st.expander("📊 Show Completion % - Cleanliness"):
         pct_df = merged_df[["Name", "Expected", "Actual"]].copy()
         pct_df["Completion %"] = (pct_df["Actual"] / pct_df["Expected"] * 100).round(1)
         st.dataframe(pct_df[["Name", "Completion %"]], use_container_width=True)
 
-        fig_pct = px.bar(
-            pct_df, x="Name", y="Completion %", text="Completion %",
-            labels={"Completion %": "Completion Rate (%)"}
+        fig_pct = px.bar(pct_df, x="Name", y="Completion %", text="Completion %")
+        fig_pct.update_layout(
+            xaxis_tickangle=-45,
+            yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
+            height=500
         )
-        fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
-        st.plotly_chart(fig_pct, use_container_width=True, key="cleanliness_pct")
+        st.plotly_chart(fig_pct, use_container_width=True, key="clean_pct")
+
+    # 🥧 Leader-wise Pie Chart (Cleanliness)
+    st.subheader("🥧 Cleanliness Completion by Leader (Expected vs Actual)")
+
+    leader_data = pd.DataFrame({
+        "Leader": ["Mr. Albert", "Mr. Said"],
+        "Expected": [192, 183],
+        "Actual": [103, 123]
+    })
+
+    leader_data["Completion %"] = (leader_data["Actual"] / leader_data["Expected"] * 100).round(1)
+    leader_data["Label"] = leader_data.apply(
+        lambda row: f"{row['Leader']} ({row['Actual']}/{row['Expected']}, {row['Completion %']}%)", axis=1
+    )
+
+    fig_pie = px.pie(
+        leader_data,
+        names="Label",
+        values="Actual",
+        title="Cleanliness - Leader-wise Actual Completion",
+        hole=0.4
+    )
+    fig_pie.update_traces(textinfo="label+percent", pull=[0.05, 0.05])
+    fig_pie.update_layout(height=400, margin=dict(t=50, b=50, l=30, r=30))
+
+    st.plotly_chart(fig_pie, use_container_width=True, key="clean_leader_pie")
 
 except Exception as e:
     st.error(f"Cleanliness Error: {e}")
+
 
 # ----------------- CRO -----------------
 st.header("🏪 CRO Audit")

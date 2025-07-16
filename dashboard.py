@@ -64,7 +64,7 @@ try:
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
-    st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True, key="qsc_chart")
 
 except Exception as e:
     st.error(f"Something went wrong: {e}")

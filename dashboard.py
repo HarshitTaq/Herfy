@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -8,7 +7,6 @@ st.title("📋 Auditor Completion Dashboard")
 
 # ----------------- CLEANLINESS -----------------
 st.header("🧼 Cleanliness Audit")
-
 try:
     df = pd.read_excel("CLEANLINESS AUDIT.xlsx", sheet_name="CLEANLINESS_AUDIT")
 
@@ -27,7 +25,6 @@ try:
 
     merged_df = merged_df.sort_values("Name").reset_index(drop=True)
     merged_df.index += 1
-    merged_df = merged_df.iloc[:32]
 
     total_row = pd.DataFrame({
         "Name": ["Total"],
@@ -41,35 +38,42 @@ try:
     st.subheader("📊 Completion Summary")
     st.dataframe(final_df, use_container_width=True)
 
-    fig = px.bar(
-        merged_df, x="Name", y=["Expected", "Actual"],
-        barmode="group", text_auto=True,
-        labels={"value": "Count", "Name": "Auditor"}
-    )
+    fig = px.bar(merged_df, x="Name", y=["Expected", "Actual"], barmode="group", text_auto=True)
     fig.update_layout(xaxis_tickangle=-45, height=500)
-    st.plotly_chart(fig, use_container_width=True, key="clean_chart")
+    st.plotly_chart(fig, use_container_width=True, key="cleanliness_bar")
+
+    with st.expander("📊 Show Completion % - Cleanliness"):
+        pct_df = merged_df[["Name", "Expected", "Actual"]].copy()
+        pct_df["Completion %"] = (pct_df["Actual"] / pct_df["Expected"] * 100).round(1)
+        st.dataframe(pct_df[["Name", "Completion %"]], use_container_width=True)
+
+        fig_pct = px.bar(
+            pct_df, x="Name", y="Completion %", text="Completion %",
+            labels={"Completion %": "Completion Rate (%)"}
+        )
+        fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
+        st.plotly_chart(fig_pct, use_container_width=True, key="cleanliness_pct")
 
 except Exception as e:
     st.error(f"Cleanliness Error: {e}")
 
 # ----------------- CRO -----------------
 st.header("🏪 CRO Audit")
-
 try:
     cro_actual = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_ACTUAL")
     cro_projected = pd.read_excel("CRO AUDIT.xlsx", sheet_name="CRO_PROJECTED")
 
-    cro_merged = pd.merge(cro_projected, cro_actual, on="Store", how="outer", suffixes=('_Projected', '_Actual'))
-    cro_merged = cro_merged[['Store', 'Projected', 'Actual']]
+    cro_merged = pd.merge(cro_projected, cro_actual, on="Store", how="outer")
+    cro_merged = cro_merged[["Store", "Projected", "Actual"]]
 
-    proj_counts = cro_merged['Projected'].value_counts().reset_index()
-    proj_counts.columns = ['Name', 'Projected_Stores']
+    proj_counts = cro_merged["Projected"].value_counts().reset_index()
+    proj_counts.columns = ["Name", "Projected_Stores"]
 
-    act_counts = cro_merged['Actual'].value_counts().reset_index()
-    act_counts.columns = ['Name', 'Actual_Stores']
+    act_counts = cro_merged["Actual"].value_counts().reset_index()
+    act_counts.columns = ["Name", "Actual_Stores"]
 
-    cro_summary = pd.merge(proj_counts, act_counts, on='Name', how='outer').fillna(0)
-    cro_summary[['Projected_Stores', 'Actual_Stores']] = cro_summary[['Projected_Stores', 'Actual_Stores']].astype(int)
+    cro_summary = pd.merge(proj_counts, act_counts, on="Name", how="outer").fillna(0)
+    cro_summary[["Projected_Stores", "Actual_Stores"]] = cro_summary[["Projected_Stores", "Actual_Stores"]].astype(int)
     cro_summary["Missed Submissions of Assigned OC"] = cro_summary["Projected_Stores"] - cro_summary["Actual_Stores"]
 
     cro_summary = cro_summary.sort_values("Name").reset_index(drop=True)
@@ -87,29 +91,31 @@ try:
     st.subheader("📊 Completion Table")
     st.dataframe(cro_final, use_container_width=True)
 
-    fig = px.bar(
-        cro_summary, x="Name", y=["Projected_Stores", "Actual_Stores"],
-        barmode="group", text_auto=True,
-        labels={"value": "Count", "Name": "Auditor"}
-    )
+    fig = px.bar(cro_summary, x="Name", y=["Projected_Stores", "Actual_Stores"], barmode="group", text_auto=True)
     fig.update_layout(xaxis_tickangle=-45, height=500)
-    st.plotly_chart(fig, use_container_width=True, key="cro_chart")
+    st.plotly_chart(fig, use_container_width=True, key="cro_bar")
+
+    with st.expander("📊 Show Completion % - CRO"):
+        pct_df = cro_summary[["Name", "Projected_Stores", "Actual_Stores"]].copy()
+        pct_df["Completion %"] = (pct_df["Actual_Stores"] / pct_df["Projected_Stores"] * 100).round(1)
+        st.dataframe(pct_df[["Name", "Completion %"]], use_container_width=True)
+
+        fig_pct = px.bar(pct_df, x="Name", y="Completion %", text="Completion %")
+        fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
+        st.plotly_chart(fig_pct, use_container_width=True, key="cro_pct")
 
 except Exception as e:
     st.error(f"CRO Error: {e}")
 
 # ----------------- IDEAL -----------------
-st.header("📦 IDEAL Audit")
-
+st.header("🛆 IDEAL Audit")
 try:
     df_ideal = pd.read_excel("IDEAL AUDIT.xlsx", sheet_name="IDEAL_AUDIT")
-    df_ideal = df_ideal[["Name", "Expected", "Actual", "Delta"]]
     df_ideal = df_ideal.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
-
     df_ideal = df_ideal[df_ideal["Name"].notna() & (df_ideal["Name"].astype(str).str.strip() != "")]
-    df_ideal[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = df_ideal[
-        ["Expected", "Actual", "Missed Submissions of Assigned OC"]
-    ].fillna(0).astype(int)
+    df_ideal[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = df_ideal[[
+        "Expected", "Actual", "Missed Submissions of Assigned OC"
+    ]].fillna(0).astype(int)
 
     df_ideal = df_ideal.sort_values("Name").reset_index(drop=True)
     df_ideal.index += 1
@@ -126,20 +132,24 @@ try:
     st.subheader("📊 Completion Table")
     st.dataframe(df_final, use_container_width=True)
 
-    fig = px.bar(
-        df_ideal, x="Name", y=["Expected", "Actual"],
-        barmode="group", text_auto=True,
-        labels={"value": "Count", "Name": "Auditor"}
-    )
+    fig = px.bar(df_ideal, x="Name", y=["Expected", "Actual"], barmode="group", text_auto=True)
     fig.update_layout(xaxis_tickangle=-45, height=500)
-    st.plotly_chart(fig, use_container_width=True, key="ideal_chart")
+    st.plotly_chart(fig, use_container_width=True, key="ideal_bar")
+
+    with st.expander("📊 Show Completion % - IDEAL"):
+        pct_df = df_ideal[["Name", "Expected", "Actual"]].copy()
+        pct_df["Completion %"] = (pct_df["Actual"] / pct_df["Expected"] * 100).round(1)
+        st.dataframe(pct_df[["Name", "Completion %"]], use_container_width=True)
+
+        fig_pct = px.bar(pct_df, x="Name", y="Completion %", text="Completion %")
+        fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
+        st.plotly_chart(fig_pct, use_container_width=True, key="ideal_pct")
 
 except Exception as e:
     st.error(f"IDEAL Error: {e}")
 
 # ----------------- QSC -----------------
 st.header("📋 QSC Audit - Month-wise Summary & Completion %")
-
 try:
     xls = pd.ExcelFile("QSC AUDIT.xlsx")
     all_months = []
@@ -151,14 +161,14 @@ try:
     qsc_df = pd.concat(all_months, ignore_index=True)
     qsc_df = qsc_df.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
     qsc_df = qsc_df[qsc_df["Name"].notna() & (qsc_df["Name"].astype(str).str.strip() != "")]
-    qsc_df[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = qsc_df[
-        ["Expected", "Actual", "Missed Submissions of Assigned OC"]
-    ].fillna(0).astype(int)
+    qsc_df[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = qsc_df[[
+        "Expected", "Actual", "Missed Submissions of Assigned OC"
+    ]].fillna(0).astype(int)
 
     month_order = ["Jan", "Feb", "March", "April", "May", "June", "July"]
     qsc_df["Month"] = pd.Categorical(qsc_df["Month"], categories=month_order, ordered=True)
 
-    selected_month = st.selectbox("📅 Select Month", options=month_order)
+    selected_month = st.selectbox("🗓️ Select Month", options=month_order)
     df_month = qsc_df[qsc_df["Month"] == selected_month].copy()
     df_month = df_month.sort_values("Name").reset_index(drop=True)
     df_month.index += 1
@@ -173,86 +183,22 @@ try:
 
     df_final = pd.concat([df_month, total_row], axis=0)
 
-    df_completion = df_month[["Name", "Expected", "Actual"]].copy()
-    df_completion["QSC Completion %"] = (df_completion["Actual"] / df_completion["Expected"] * 100).round(1)
-    df_completion.index += 1
-
     st.subheader(f"📊 QSC Table - {selected_month}")
     st.dataframe(df_final.drop(columns=["Month"]), use_container_width=True)
 
-    st.subheader(f"✅ QSC Completion % - {selected_month}")
-    st.dataframe(df_completion[["Name", "QSC Completion %"]], use_container_width=True)
-
-    fig = px.bar(
-        df_month, x="Name", y=["Expected", "Actual"],
-        barmode="group", text_auto=True,
-        labels={"value": "Count", "Name": "Auditor"}
-    )
+    st.subheader(f"📊 QSC Audit Chart - {selected_month}")
+    fig = px.bar(df_month, x="Name", y=["Expected", "Actual"], barmode="group", text_auto=True)
     fig.update_layout(xaxis_tickangle=-45, height=500)
-    st.subheader(f"📈 QSC Chart - {selected_month}")
-    st.plotly_chart(fig, use_container_width=True, key="qsc_chart")
+    st.plotly_chart(fig, use_container_width=True, key="qsc_bar")
+
+    with st.expander(f"📊 Show Completion % - QSC ({selected_month})"):
+        pct_df = df_month[["Name", "Expected", "Actual"]].copy()
+        pct_df["Completion %"] = (pct_df["Actual"] / pct_df["Expected"] * 100).round(1)
+        st.dataframe(pct_df[["Name", "Completion %"]], use_container_width=True)
+
+        fig_pct = px.bar(pct_df, x="Name", y="Completion %", text="Completion %")
+        fig_pct.update_layout(xaxis_tickangle=-45, yaxis_range=[0, 110], height=500)
+        st.plotly_chart(fig_pct, use_container_width=True, key="qsc_pct")
 
 except Exception as e:
     st.error(f"QSC Error: {e}")
-
-# ----------------- Completion % Charts for Cleanliness, CRO, IDEAL -----------------
-
-st.header("✅ Auditor Completion % Overview")
-
-# Cleanliness
-with st.expander("📊 Show Completion % - Cleanliness Process"):
-    cleanliness_pct = merged_df[["Name", "Expected", "Actual"]].copy()
-    cleanliness_pct["Completion %"] = (cleanliness_pct["Actual"] / cleanliness_pct["Expected"] * 100).round(1)
-    st.dataframe(cleanliness_pct[["Name", "Completion %"]], use_container_width=True)
-
-    fig_clean = px.bar(
-        cleanliness_pct,
-        x="Name", y="Completion %",
-        text="Completion %",
-        labels={"Name": "Auditor", "Completion %": "Completion Rate (%)"}
-    )
-    fig_clean.update_layout(
-        xaxis_tickangle=-45,
-        yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
-        height=500
-    )
-    st.plotly_chart(fig_clean, use_container_width=True)
-
-# CRO
-with st.expander("📊 Show Completion % - CRO Process"):
-    cro_pct = cro_summary[["Name", "Projected_Stores", "Actual_Stores"]].copy()
-    cro_pct["Completion %"] = (cro_pct["Actual_Stores"] / cro_pct["Projected_Stores"] * 100).round(1)
-    st.dataframe(cro_pct[["Name", "Completion %"]], use_container_width=True)
-
-    fig_cro = px.bar(
-        cro_pct,
-        x="Name", y="Completion %",
-        text="Completion %",
-        labels={"Name": "Auditor", "Completion %": "Completion Rate (%)"}
-    )
-    fig_cro.update_layout(
-        xaxis_tickangle=-45,
-        yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
-        height=500
-    )
-    st.plotly_chart(fig_cro, use_container_width=True)
-
-# IDEAL
-with st.expander("📊 Show Completion % - IDEAL Process"):
-    ideal_pct = df_ideal[["Name", "Expected", "Actual"]].copy()
-    ideal_pct["Completion %"] = (ideal_pct["Actual"] / ideal_pct["Expected"] * 100).round(1)
-    st.dataframe(ideal_pct[["Name", "Completion %"]], use_container_width=True)
-
-    fig_ideal = px.bar(
-        ideal_pct,
-        x="Name", y="Completion %",
-        text="Completion %",
-        labels={"Name": "Auditor", "Completion %": "Completion Rate (%)"}
-    )
-    fig_ideal.update_layout(
-        xaxis_tickangle=-45,
-        yaxis=dict(title="Completion Rate (%)", range=[0, 110]),
-        height=500
-    )
-    st.plotly_chart(fig_ideal, use_container_width=True)
-

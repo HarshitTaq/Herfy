@@ -64,7 +64,7 @@ try:
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
-st.plotly_chart(fig, use_container_width=True, key="qsc_chart")
+st.plotly_chart(fig, use_container_width=True)
 
 except Exception as e:
     st.error(f"Something went wrong: {e}")
@@ -259,121 +259,6 @@ try:
         height=500,
         margin=dict(l=20, r=20, t=50, b=100)
     )
-    st.plotly_chart(fig, use_container_width=True)
-
-except Exception as e:
-    st.error(f"QSC Error: {e}")
-
-
-# ----------------- Completion % Summary Table (Excluding QSC) -----------------
-
-st.header("✅ Auditor Completion % Across Cleanliness, CRO, IDEAL")
-
-try:
-    # --- Cleanliness (from earlier merged_df)
-    cleanliness_pct = merged_df[["Name", "Expected", "Actual"]].copy()
-    cleanliness_pct["Cleanliness %"] = (cleanliness_pct["Actual"] / cleanliness_pct["Expected"] * 100).round(1)
-    cleanliness_pct = cleanliness_pct[["Name", "Cleanliness %"]]
-
-    # --- CRO
-    cro_pct = cro_summary[["Name", "Projected_Stores", "Actual_Stores"]].copy()
-    cro_pct["CRO %"] = (cro_pct["Actual_Stores"] / cro_pct["Projected_Stores"] * 100).round(1)
-    cro_pct = cro_pct[["Name", "CRO %"]]
-
-    # --- IDEAL
-    ideal_pct = df_ideal[["Name", "Expected", "Actual"]].copy()
-    ideal_pct["IDEAL %"] = (ideal_pct["Actual"] / ideal_pct["Expected"] * 100).round(1)
-    ideal_pct = ideal_pct[["Name", "IDEAL %"]]
-
-    # --- Merge
-    df_pct = cleanliness_pct.merge(cro_pct, on="Name", how="outer")
-    df_pct = df_pct.merge(ideal_pct, on="Name", how="outer")
-    df_pct = df_pct.fillna(0)
-    df_pct = df_pct.sort_values("Name").reset_index(drop=True)
-    df_pct.index += 1
-
-    st.subheader("📊 Completion % by Process (excluding QSC)")
-    st.dataframe(df_pct, use_container_width=True)
-
-except Exception as e:
-    st.error(f"Completion Summary Error: {e}")
-
-# ----------------- QSC Process Dashboard (Month Filtered Completion %) -----------------
-
-st.header("📋 QSC Audit - Projected vs Actual (Month-wise Summary & Completion %)")
-
-try:
-    import pandas as pd
-    import plotly.express as px
-
-    # Load all sheets
-    qsc_path = "QSC AUDIT.xlsx"
-    xls = pd.ExcelFile(qsc_path)
-
-    all_months = []
-    for sheet in xls.sheet_names:
-        df = xls.parse(sheet)
-        df["Month"] = sheet
-        all_months.append(df)
-
-    qsc_df = pd.concat(all_months, ignore_index=True)
-
-    # Clean and rename
-    qsc_df = qsc_df.rename(columns={"Delta": "Missed Submissions of Assigned OC"})
-    qsc_df = qsc_df[qsc_df["Name"].notna() & (qsc_df["Name"].astype(str).str.strip() != "")]
-    qsc_df[["Expected", "Actual", "Missed Submissions of Assigned OC"]] = qsc_df[
-        ["Expected", "Actual", "Missed Submissions of Assigned OC"]
-    ].fillna(0).astype(int)
-
-    # Month dropdown (single-month logic)
-    month_order = ["Jan", "Feb", "March", "April", "May", "June", "July"]
-    qsc_df["Month"] = pd.Categorical(qsc_df["Month"], categories=month_order, ordered=True)
-
-    selected_month = st.selectbox("📅 Select Month for QSC Completion", options=month_order)
-    df_month = qsc_df[qsc_df["Month"] == selected_month].copy()
-    df_month = df_month.sort_values("Name").reset_index(drop=True)
-    df_month.index += 1
-
-    # Summary row
-    total_row = pd.DataFrame({
-        "Month": [selected_month],
-        "Name": ["Total"],
-        "Expected": [df_month["Expected"].sum()],
-        "Actual": [df_month["Actual"].sum()],
-        "Missed Submissions of Assigned OC": [df_month["Missed Submissions of Assigned OC"].sum()]
-    }, index=[""])
-
-    df_final = pd.concat([df_month, total_row], axis=0)
-
-    # Completion % for selected month
-    df_completion = df_month[["Name", "Expected", "Actual"]].copy()
-    df_completion["QSC Completion %"] = (df_completion["Actual"] / df_completion["Expected"] * 100).round(1)
-    df_completion = df_completion.sort_values("Name").reset_index(drop=True)
-    df_completion.index += 1
-
-    # Display Table
-    st.subheader(f"📊 QSC Completion Table - {selected_month}")
-    st.dataframe(df_final.drop(columns=["Month"]), use_container_width=True)
-
-    st.subheader(f"✅ QSC Completion % - {selected_month}")
-    st.dataframe(df_completion[["Name", "QSC Completion %"]], use_container_width=True)
-
-    # Chart
-    fig = px.bar(
-        df_month,
-        x="Name",
-        y=["Expected", "Actual"],
-        barmode="group",
-        text_auto=True,
-        labels={"value": "Count", "Name": "Auditor"}
-    )
-    fig.update_layout(
-        xaxis_tickangle=-45,
-        yaxis=dict(title="Stores", range=[0, df_month[["Expected", "Actual"]].max().max() + 2]),
-        height=500,
-        margin=dict(l=20, r=20, t=50, b=100)
-    )
-    st.subheader(f"📈 QSC Audit Chart - {selected_month}")
     st.plotly_chart(fig, use_container_width=True)
 
 except Exception as e:

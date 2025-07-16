@@ -263,3 +263,44 @@ try:
 
 except Exception as e:
     st.error(f"QSC Error: {e}")
+
+# ----------------- Completion % Summary Table -----------------
+
+st.header("✅ Auditor Completion % Across All Processes")
+
+try:
+    # --- Cleanliness (from earlier merged_df)
+    cleanliness_pct = merged_df[["Name", "Expected", "Actual"]].copy()
+    cleanliness_pct["Cleanliness %"] = (cleanliness_pct["Actual"] / cleanliness_pct["Expected"] * 100).round(1)
+    cleanliness_pct = cleanliness_pct[["Name", "Cleanliness %"]]
+
+    # --- CRO
+    cro_pct = cro_summary[["Name", "Projected_Stores", "Actual_Stores"]].copy()
+    cro_pct["CRO %"] = (cro_pct["Actual_Stores"] / cro_pct["Projected_Stores"] * 100).round(1)
+    cro_pct = cro_pct[["Name", "CRO %"]]
+
+    # --- IDEAL
+    ideal_pct = df_ideal[["Name", "Expected", "Actual"]].copy()
+    ideal_pct["IDEAL %"] = (ideal_pct["Actual"] / ideal_pct["Expected"] * 100).round(1)
+    ideal_pct = ideal_pct[["Name", "IDEAL %"]]
+
+    # --- QSC
+    qsc_pct = df_filtered[["Name", "Expected", "Actual"]].copy()
+    qsc_pct = qsc_pct.groupby("Name", as_index=False).sum()
+    qsc_pct["QSC %"] = (qsc_pct["Actual"] / qsc_pct["Expected"] * 100).round(1)
+    qsc_pct = qsc_pct[["Name", "QSC %"]]
+
+    # --- Merge all %
+    df_pct = cleanliness_pct.merge(cro_pct, on="Name", how="outer")
+    df_pct = df_pct.merge(ideal_pct, on="Name", how="outer")
+    df_pct = df_pct.merge(qsc_pct, on="Name", how="outer")
+    df_pct = df_pct.fillna(0)
+    df_pct = df_pct.sort_values("Name").reset_index(drop=True)
+    df_pct.index += 1
+
+    st.subheader("📊 Completion % by Process")
+    st.dataframe(df_pct, use_container_width=True)
+
+except Exception as e:
+    st.error(f"Summary Error: {e}")
+
